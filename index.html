@@ -145,6 +145,58 @@
     background: none; border: none; color: var(--sub);
     text-decoration: underline; cursor: pointer; font-size: 12px;
   }
+  .sync-card { margin-top: 16px; }
+  .sync-card .sync-title { font-weight: 700; margin-bottom: 8px; }
+  .sync-card .sync-desc { color: var(--sub); font-size: 13px; margin-bottom: 10px; }
+  .sync-btns { display: flex; gap: 8px; margin-bottom: 10px; }
+  .sync-btn {
+    border: 1px solid var(--line); background: #fff;
+    color: var(--ink); padding: 8px 16px; border-radius: 8px;
+    font-size: 13px; cursor: pointer; transition: all .15s;
+  }
+  .sync-btn:hover { background: var(--red); border-color: var(--red); color: #fff; }
+  #syncBox {
+    width: 100%; border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px; font-size: 12px; font-family: ui-monospace, Consolas, monospace;
+    resize: vertical; background: #faf5ec; color: var(--ink);
+    box-sizing: border-box; line-height: 1.5;
+  }
+  .add-btn {
+    border: 1px dashed var(--red); background: #fff;
+    color: var(--red); padding: 8px 16px; border-radius: 99px;
+    font-size: 13px; cursor: pointer;
+  }
+  .add-btn:hover { background: var(--red); color: #fff; border-color: var(--red); }
+  .custom-tag {
+    font-size: 11px; color: var(--gold); border: 1px solid var(--gold);
+    border-radius: 4px; padding: 0 4px; margin-left: 6px; white-space: nowrap;
+  }
+  .item .del {
+    flex: none; width: 22px; height: 22px; line-height: 22px;
+    text-align: center; border-radius: 50%; color: var(--sub);
+    font-size: 18px; cursor: pointer; margin-left: 4px;
+  }
+  .item .del:hover { background: var(--red-soft); color: var(--red); }
+  .modal-mask {
+    position: fixed; inset: 0; background: rgba(0,0,0,.4);
+    display: flex; align-items: center; justify-content: center; z-index: 99;
+  }
+  .modal {
+    background: var(--card); border-radius: 14px; padding: 24px;
+    width: 90%; max-width: 360px; box-shadow: 0 10px 40px rgba(0,0,0,.2);
+  }
+  .modal-title { font-weight: 700; font-size: 17px; margin-bottom: 16px; }
+  .modal-field { margin-bottom: 14px; }
+  .modal-field label { display: block; font-size: 13px; color: var(--sub); margin-bottom: 6px; }
+  .modal-field input, .modal-field select {
+    width: 100%; border: 1px solid var(--line); border-radius: 8px;
+    padding: 9px 10px; font-size: 14px; background: #fff; color: var(--ink);
+    box-sizing: border-box;
+  }
+  .modal-field input:focus, .modal-field select:focus { outline: none; border-color: var(--red); }
+  .modal-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+  .sync-btn.primary { background: var(--red); border-color: var(--red); color: #fff; }
+  .sync-btn.primary:hover { background: #9c2f28; }
 </style>
 </head>
 <body>
@@ -170,12 +222,53 @@
     <button data-filter="done">已打卡</button>
   </div>
 
+  <div style="margin-bottom:18px;">
+    <button id="addSpotBtn" class="add-btn">+ 添加景点</button>
+  </div>
+
   <div id="groups"></div>
+
+  <div class="progress-card sync-card">
+    <div class="sync-title">↔ 同步进度（和室友共享）</div>
+    <div class="sync-desc">勾选存各自浏览器。想对进度：点「导出」复制一段码发室友，对方粘贴后点「导入」；导入会把对方打卡过的景点合并进来，你自己勾的不丢。</div>
+    <div class="sync-btns">
+      <button id="exportBtn" class="sync-btn">导出进度</button>
+      <button id="importBtn" class="sync-btn">导入进度</button>
+    </div>
+    <textarea id="syncBox" rows="3" placeholder="点「导出」后这里会出现一段码，复制发给室友；或把室友的码粘贴到这里再点「导入」"></textarea>
+  </div>
 
   <footer>
     勾选状态自动保存在本浏览器，关掉再打开也不会丢 ·
     <button id="resetBtn">重置全部</button>
   </footer>
+</div>
+
+<div class="modal-mask" id="addModal" style="display:none;">
+  <div class="modal">
+    <div class="modal-title">添加景点</div>
+    <div class="modal-field">
+      <label>景点名（必填）</label>
+      <input id="spotName" type="text" placeholder="例如：紫金山" />
+    </div>
+    <div class="modal-field">
+      <label>归属大类</label>
+      <select id="spotGroup">
+        <option value="0">第一圈 · 南京市区</option>
+        <option value="1">第二圈 · 高铁1小时圈</option>
+        <option value="2">第三圈 · 高铁1.5–2小时圈</option>
+        <option value="3">第四圈 · 稍远但值得</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <label>备注（选填）</label>
+      <input id="spotNote" type="text" placeholder="例如：秋天去" />
+    </div>
+    <div class="modal-btns">
+      <button id="cancelAdd" class="sync-btn">取消</button>
+      <button id="confirmAdd" class="sync-btn primary">添加</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -279,6 +372,18 @@ function saveChecked(map) {
 let checked = loadChecked();
 let currentFilter = "all";
 
+const CUSTOM_KEY = "nanjing-travel-custom-v1";
+function loadCustom() {
+  try {
+    const raw = localStorage.getItem(CUSTOM_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) { return []; }
+}
+function saveCustom(arr) {
+  try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(arr)); } catch (e) {}
+}
+let customSpots = loadCustom();
+
 function idOf(groupIdx, itemIdx) {
   return groupIdx + "-" + itemIdx;
 }
@@ -290,19 +395,27 @@ function render() {
   let done = 0, all = 0;
 
   DATA.forEach((group, gi) => {
+    // 合并内置景点 + 该组自定义景点
+    const groupItems = [];
+    group.items.forEach((item, ii) => {
+      groupItems.push({ name: item.name, note: item.note || "", id: idOf(gi, ii), custom: false });
+    });
+    customSpots.forEach(s => {
+      if (s.group === gi) groupItems.push({ name: s.name, note: s.note || "", id: s.id, custom: true });
+    });
+
+    let groupDone = 0;
+    groupItems.forEach(it => {
+      all++;
+      if (!!checked[it.id]) { done++; groupDone++; }
+    });
+
+    const visibleCount = groupItems.filter(it => matchesFilter(!!checked[it.id])).length;
+    if (currentFilter !== "all" && visibleCount === 0) return;
+
     const groupEl = document.createElement("div");
     groupEl.className = "group";
     groupEl.dataset.gi = gi;
-
-    let groupDone = 0;
-    const visibleItems = group.items.filter((_, ii) => {
-      const isDone = !!checked[idOf(gi, ii)];
-      all++;
-      if (isDone) { done++; groupDone++; }
-      return matchesFilter(isDone);
-    });
-
-    if (currentFilter !== "all" && visibleItems.length === 0) return;
 
     const head = document.createElement("div");
     head.className = "group-head";
@@ -310,7 +423,7 @@ function render() {
       <span class="dot"></span>
       <span class="gtitle">${group.title}</span>
       <span class="gsub">${group.sub}</span>
-      <span class="gcount">${groupDone}/${group.items.length}</span>
+      <span class="gcount">${groupDone}/${groupItems.length}</span>
       <span class="arrow">▼</span>
     `;
     head.addEventListener("click", () => groupEl.classList.toggle("collapsed"));
@@ -319,20 +432,21 @@ function render() {
     const itemsWrap = document.createElement("div");
     itemsWrap.className = "items";
 
-    group.items.forEach((item, ii) => {
-      const isDone = !!checked[idOf(gi, ii)];
+    groupItems.forEach(it => {
+      const isDone = !!checked[it.id];
       if (!matchesFilter(isDone)) return;
 
       const row = document.createElement("div");
       row.className = "item" + (isDone ? " done" : "");
       row.innerHTML = `
         <span class="box">${isDone ? "✓" : ""}</span>
-        <span class="name">${item.name}</span>
-        <span class="note">${item.note || ""}</span>
+        <span class="name">${it.name}${it.custom ? '<span class="custom-tag">自加</span>' : ""}</span>
+        <span class="note">${it.note || ""}</span>
+        ${it.custom ? '<span class="del" title="删除">×</span>' : ""}
       `;
-      row.addEventListener("click", () => {
-        const key = idOf(gi, ii);
-        checked[key] = !checked[key];
+      row.addEventListener("click", (e) => {
+        if (e.target.classList.contains("del")) { removeSpot(it.id); return; }
+        checked[it.id] = !checked[it.id];
         saveChecked(checked);
         render();
       });
@@ -378,6 +492,73 @@ document.getElementById("resetBtn").addEventListener("click", () => {
     saveChecked(checked);
     render();
   }
+});
+
+function b64encode(s) { return btoa(unescape(encodeURIComponent(s))); }
+function b64decode(s) { return decodeURIComponent(escape(atob(s))); }
+
+function removeSpot(id) {
+  customSpots = customSpots.filter(s => s.id !== id);
+  delete checked[id];
+  saveCustom(customSpots);
+  saveChecked(checked);
+  render();
+}
+
+document.getElementById("exportBtn").addEventListener("click", () => {
+  const payload = { checked: checked, customSpots: customSpots };
+  const code = b64encode(JSON.stringify(payload));
+  const box = document.getElementById("syncBox");
+  box.value = code;
+  box.select();
+  try { navigator.clipboard.writeText(code); } catch (e) {}
+  alert("同步码已生成并复制，直接发给室友即可（含进度和自加景点）。");
+});
+
+document.getElementById("importBtn").addEventListener("click", () => {
+  const code = document.getElementById("syncBox").value.trim();
+  if (!code) { alert("请先把室友发你的同步码粘贴到上面框里"); return; }
+  try {
+    const parsed = JSON.parse(b64decode(code));
+    if (parsed && typeof parsed === "object") {
+      const ck = parsed.checked || parsed;                       // 兼容旧格式（纯勾选对象）
+      const spots = Array.isArray(parsed.customSpots) ? parsed.customSpots : [];
+      for (const k in ck) { if (ck[k]) checked[k] = true; }      // 只合并"已打卡"，不冲掉你的
+      const exist = new Set(customSpots.map(s => s.id));
+      spots.forEach(s => { if (s && s.id && !exist.has(s.id)) { customSpots.push(s); exist.add(s.id); } });
+      saveChecked(checked);
+      saveCustom(customSpots);
+      render();
+      alert("导入成功，进度和自加景点都已合并！");
+    } else {
+      throw new Error("bad");
+    }
+  } catch (e) {
+    alert("同步码不对，请确认复制完整后重试。");
+  }
+});
+
+// —— 添加景点 ——
+const addModal = document.getElementById("addModal");
+document.getElementById("addSpotBtn").addEventListener("click", () => {
+  document.getElementById("spotName").value = "";
+  document.getElementById("spotNote").value = "";
+  document.getElementById("spotGroup").value = "0";
+  addModal.style.display = "flex";
+  document.getElementById("spotName").focus();
+});
+function closeAddModal() { addModal.style.display = "none"; }
+document.getElementById("cancelAdd").addEventListener("click", closeAddModal);
+addModal.addEventListener("click", (e) => { if (e.target === addModal) closeAddModal(); });
+document.getElementById("confirmAdd").addEventListener("click", () => {
+  const name = document.getElementById("spotName").value.trim();
+  const note = document.getElementById("spotNote").value.trim();
+  const group = parseInt(document.getElementById("spotGroup").value, 10);
+  if (!name) { alert("请填写景点名"); return; }
+  customSpots.push({ id: "custom-" + Date.now(), name: name, note: note, group: group });
+  saveCustom(customSpots);
+  closeAddModal();
+  render();
 });
 
 render();
