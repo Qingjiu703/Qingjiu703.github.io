@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>南京及周边 · 两年游玩打卡</title>
+<style>
+  :root {
+    --bg: #f5f0e8;
+    --card: #fffdf8;
+    --ink: #2b2b2b;
+    --sub: #8a8378;
+    --red: #b5372f;
+    --red-soft: #e8d5d0;
+    --line: #e6ddcf;
+    --green: #4a7c59;
+    --gold: #c9a15a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.6;
+    padding-bottom: 60px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 0 18px; }
+
+  header {
+    padding: 40px 0 22px;
+    text-align: center;
+  }
+  header .seal {
+    display: inline-block;
+    width: 52px; height: 52px; line-height: 52px;
+    background: var(--red); color: #fff;
+    font-size: 22px; font-weight: 700;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    letter-spacing: 2px;
+  }
+  header h1 {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+  header p.sub {
+    color: var(--sub);
+    font-size: 14px;
+    margin-top: 6px;
+  }
+
+  /* 进度条 */
+  .progress-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.03);
+  }
+  .progress-top {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 10px;
+  }
+  .progress-top .num { font-size: 24px; font-weight: 700; color: var(--red); }
+  .progress-top .total { color: var(--sub); font-size: 13px; }
+  .bar {
+    height: 10px; background: #ede5d7; border-radius: 99px; overflow: hidden;
+  }
+  .bar > i {
+    display: block; height: 100%; width: 0;
+    background: linear-gradient(90deg, var(--red), var(--gold));
+    border-radius: 99px;
+    transition: width .4s ease;
+  }
+  .progress-note { color: var(--sub); font-size: 12px; margin-top: 10px; }
+
+  /* 筛选 */
+  .filters {
+    display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap;
+  }
+  .filters button {
+    border: 1px solid var(--line); background: var(--card);
+    color: var(--ink); padding: 7px 16px; border-radius: 99px;
+    font-size: 13px; cursor: pointer; transition: all .15s;
+  }
+  .filters button.active {
+    background: var(--red); border-color: var(--red); color: #fff;
+  }
+
+  /* 分组 */
+  .group {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    margin-bottom: 16px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0,0,0,.03);
+  }
+  .group-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 16px 18px; cursor: pointer; user-select: none;
+  }
+  .group-head .dot {
+    width: 10px; height: 10px; border-radius: 50%; background: var(--red);
+    flex: none;
+  }
+  .group-head .gtitle { font-weight: 700; font-size: 16px; }
+  .group-head .gsub { color: var(--sub); font-size: 12px; margin-left: 2px; }
+  .group-head .gcount { margin-left: auto; font-size: 12px; color: var(--sub); flex: none; }
+  .group-head .arrow { flex: none; color: var(--sub); transition: transform .2s; }
+  .group.collapsed .arrow { transform: rotate(-90deg); }
+  .group.collapsed .items { display: none; }
+
+  .items { border-top: 1px solid var(--line); }
+  .item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 18px;
+    border-bottom: 1px solid #f0e9dc;
+    cursor: pointer;
+    transition: background .12s;
+  }
+  .item:last-child { border-bottom: none; }
+  .item:hover { background: #faf5ec; }
+  .item .box {
+    width: 22px; height: 22px; border-radius: 6px;
+    border: 2px solid #d8cdb8; flex: none;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .15s;
+    color: #fff; font-size: 14px; font-weight: 700;
+  }
+  .item.done .box { background: var(--green); border-color: var(--green); }
+  .item .name { font-size: 15px; flex: 1; }
+  .item .note { font-size: 12px; color: var(--sub); text-align: right; flex: none; }
+  .item.done .name { color: #a8a098; text-decoration: line-through; }
+  .item.done .note { opacity: .55; }
+
+  footer {
+    text-align: center; color: var(--sub); font-size: 12px;
+    margin-top: 30px;
+  }
+  footer button {
+    background: none; border: none; color: var(--sub);
+    text-decoration: underline; cursor: pointer; font-size: 12px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="seal">游</div>
+    <h1>南京及周边 · 两年游玩打卡</h1>
+    <p class="sub">读研两年，玩遍金陵与江南 —— 去过的就勾上</p>
+  </header>
+
+  <div class="progress-card">
+    <div class="progress-top">
+      <span class="num"><span id="doneCount">0</span><span class="total"> / <span id="allCount">0</span> 处</span></span>
+      <span class="total" id="pctText">0%</span>
+    </div>
+    <div class="bar"><i id="barFill"></i></div>
+    <div class="progress-note" id="progressNote"></div>
+  </div>
+
+  <div class="filters">
+    <button data-filter="all" class="active">全部</button>
+    <button data-filter="todo">还没去</button>
+    <button data-filter="done">已打卡</button>
+  </div>
+
+  <div id="groups"></div>
+
+  <footer>
+    勾选状态自动保存在本浏览器，关掉再打开也不会丢 ·
+    <button id="resetBtn">重置全部</button>
+  </footer>
+</div>
+
+<script>
+const DATA = [
+  {
+    title: "第一圈 · 南京市区",
+    sub: "平时周末、没课下午就能去",
+    items: [
+      { name: "中山陵", note: "11月石象路银杏" },
+      { name: "明孝陵", note: "世界遗产" },
+      { name: "夫子庙", note: "夜景" },
+      { name: "老门东", note: "吃逛" },
+      { name: "秦淮河", note: "晚上游船" },
+      { name: "南京博物院", note: "免费需预约，民国馆" },
+      { name: "总统府", note: "近现代史" },
+      { name: "南京大屠杀遇难同胞纪念馆", note: "肃穆" },
+      { name: "玄武湖", note: "春樱夏荷" },
+      { name: "台城", note: "城墙上看湖" },
+      { name: "栖霞山", note: "深秋红叶，11月" },
+      { name: "鸡鸣寺", note: "3月底樱花大道" },
+      { name: "牛首山", note: "佛顶宫震撼" },
+      { name: "梅花山", note: "2-3月梅花" },
+      { name: "莫愁湖", note: "人少安静" },
+      { name: "清凉山", note: "银杏" },
+      { name: "阅江楼", note: "长江眺望" },
+      { name: "燕子矶", note: "长江日落" },
+      { name: "鱼嘴湿地", note: "看落日" },
+      { name: "浦口火车站", note: "民国老站，文艺" },
+      { name: "汤山温泉", note: "冬天泡汤" },
+    ]
+  },
+  {
+    title: "第二圈 · 高铁1小时圈",
+    sub: "周末往返，说走就走",
+    items: [
+      { name: "镇江 · 西津渡", note: "当天往返" },
+      { name: "镇江 · 金山寺", note: "白蛇传" },
+      { name: "镇江 · 北固山", note: "三国名楼" },
+      { name: "扬州 · 瘦西湖", note: "烟花三月" },
+      { name: "扬州 · 个园", note: "四季假山" },
+      { name: "扬州 · 大明寺", note: "古刹" },
+      { name: "常州 · 春秋淹城", note: "遗址" },
+      { name: "常州 · 恐龙园", note: "乐园" },
+      { name: "常州 · 天目湖", note: "夏天" },
+      { name: "无锡 · 鼋头渚", note: "3月樱花" },
+      { name: "无锡 · 灵山大佛", note: "壮观" },
+      { name: "无锡 · 惠山古镇", note: "古镇" },
+      { name: "茅山", note: "道教名山，夏避暑" },
+    ]
+  },
+  {
+    title: "第三圈 · 高铁1.5–2小时圈",
+    sub: "小长假2-3天",
+    items: [
+      { name: "苏州 · 拙政园", note: "园林之首" },
+      { name: "苏州 · 留园", note: "四大名园" },
+      { name: "苏州 · 平江路", note: "老街" },
+      { name: "苏州 · 山塘街", note: "夜景" },
+      { name: "苏州 · 周庄", note: "古镇" },
+      { name: "苏州 · 同里", note: "古镇" },
+      { name: "上海 · 外滩", note: "夜景" },
+      { name: "上海 · 武康路", note: "City Walk" },
+      { name: "上海 · 看展/演出", note: "性价比玩法" },
+      { name: "上海 · 迪士尼", note: "错峰去" },
+      { name: "杭州 · 西湖", note: "四季皆宜" },
+      { name: "杭州 · 灵隐寺", note: "古刹" },
+      { name: "杭州 · 九溪烟树", note: "徒步" },
+      { name: "杭州 · 龙井村", note: "春天" },
+      { name: "南浔古镇", note: "江南水乡" },
+      { name: "莫干山", note: "秋冬民宿" },
+    ]
+  },
+  {
+    title: "第四圈 · 稍远但值得",
+    sub: "假期3-4天",
+    items: [
+      { name: "黄山", note: "冬雪春雾" },
+      { name: "宏村", note: "清晨最美" },
+      { name: "西递", note: "皖南古村" },
+      { name: "徽州 · 歙县", note: "古城" },
+      { name: "徽州 · 屯溪老街", note: "老街" },
+      { name: "徽州 · 呈坎", note: "八卦村" },
+      { name: "九华山", note: "佛教名山" },
+      { name: "婺源", note: "3-4月油菜花、11月晒秋" },
+    ]
+  },
+];
+
+const STORE_KEY = "nanjing-travel-checked-v2";
+
+function loadChecked() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) { return {}; }
+}
+function saveChecked(map) {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(map)); } catch (e) {}
+}
+
+let checked = loadChecked();
+let currentFilter = "all";
+
+function idOf(groupIdx, itemIdx) {
+  return groupIdx + "-" + itemIdx;
+}
+
+function render() {
+  const groupsEl = document.getElementById("groups");
+  groupsEl.innerHTML = "";
+
+  let done = 0, all = 0;
+
+  DATA.forEach((group, gi) => {
+    const groupEl = document.createElement("div");
+    groupEl.className = "group";
+    groupEl.dataset.gi = gi;
+
+    let groupDone = 0;
+    const visibleItems = group.items.filter((_, ii) => {
+      const isDone = !!checked[idOf(gi, ii)];
+      all++;
+      if (isDone) { done++; groupDone++; }
+      return matchesFilter(isDone);
+    });
+
+    if (currentFilter !== "all" && visibleItems.length === 0) return;
+
+    const head = document.createElement("div");
+    head.className = "group-head";
+    head.innerHTML = `
+      <span class="dot"></span>
+      <span class="gtitle">${group.title}</span>
+      <span class="gsub">${group.sub}</span>
+      <span class="gcount">${groupDone}/${group.items.length}</span>
+      <span class="arrow">▼</span>
+    `;
+    head.addEventListener("click", () => groupEl.classList.toggle("collapsed"));
+    groupEl.appendChild(head);
+
+    const itemsWrap = document.createElement("div");
+    itemsWrap.className = "items";
+
+    group.items.forEach((item, ii) => {
+      const isDone = !!checked[idOf(gi, ii)];
+      if (!matchesFilter(isDone)) return;
+
+      const row = document.createElement("div");
+      row.className = "item" + (isDone ? " done" : "");
+      row.innerHTML = `
+        <span class="box">${isDone ? "✓" : ""}</span>
+        <span class="name">${item.name}</span>
+        <span class="note">${item.note || ""}</span>
+      `;
+      row.addEventListener("click", () => {
+        const key = idOf(gi, ii);
+        checked[key] = !checked[key];
+        saveChecked(checked);
+        render();
+      });
+      itemsWrap.appendChild(row);
+    });
+
+    groupEl.appendChild(itemsWrap);
+    groupsEl.appendChild(groupEl);
+  });
+
+  document.getElementById("doneCount").textContent = done;
+  document.getElementById("allCount").textContent = all;
+  const pct = all ? Math.round(done / all * 100) : 0;
+  document.getElementById("pctText").textContent = pct + "%";
+  document.getElementById("barFill").style.width = pct + "%";
+
+  const noteEl = document.getElementById("progressNote");
+  if (done === 0) noteEl.textContent = "青春就在当下！";
+  else if (done === all) noteEl.textContent = "全部打卡！江南已是你的后花园 🎉";
+  else if (done >= 20) noteEl.textContent = "过半了，进度喜人，继续解锁更远的地方。";
+  else noteEl.textContent = "继续走，周末别宅宿舍。";
+}
+
+function matchesFilter(isDone) {
+  if (currentFilter === "all") return true;
+  if (currentFilter === "done") return isDone;
+  if (currentFilter === "todo") return !isDone;
+  return true;
+}
+
+document.querySelectorAll(".filters button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".filters button").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    currentFilter = btn.dataset.filter;
+    render();
+  });
+});
+
+document.getElementById("resetBtn").addEventListener("click", () => {
+  if (confirm("确定要清空所有打卡记录吗？")) {
+    checked = {};
+    saveChecked(checked);
+    render();
+  }
+});
+
+render();
+</script>
+</body>
+</html>
