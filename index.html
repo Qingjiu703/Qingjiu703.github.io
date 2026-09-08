@@ -197,6 +197,9 @@
   .modal-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
   .sync-btn.primary { background: var(--red); border-color: var(--red); color: #fff; }
   .sync-btn.primary:hover { background: #9c2f28; }
+  .board-title {
+    font-size: 20px; font-weight: 700; margin: 0 0 14px;
+  }
 </style>
 </head>
 <body>
@@ -206,6 +209,8 @@
     <h1>南京及周边 · 两年游玩打卡</h1>
     <p class="sub">读研两年，玩遍金陵与江南 —— 去过的就勾上</p>
   </header>
+
+  <div class="board-title">📍 景点打卡</div>
 
   <div class="progress-card">
     <div class="progress-top">
@@ -227,6 +232,12 @@
   </div>
 
   <div id="groups"></div>
+
+  <div class="board-title" style="margin-top:32px;">🍜 美食打卡</div>
+  <div style="margin-bottom:18px;">
+    <button id="addFoodBtn" class="add-btn">+ 添加美食</button>
+  </div>
+  <div id="foodGroups"></div>
 
   <div class="progress-card sync-card">
     <div class="sync-title">↔ 同步进度（和室友共享）</div>
@@ -267,6 +278,33 @@
     <div class="modal-btns">
       <button id="cancelAdd" class="sync-btn">取消</button>
       <button id="confirmAdd" class="sync-btn primary">添加</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-mask" id="addFoodModal" style="display:none;">
+  <div class="modal">
+    <div class="modal-title">添加美食</div>
+    <div class="modal-field">
+      <label>美食名（必填）</label>
+      <input id="foodName" type="text" placeholder="例如：蟹黄汤包" />
+    </div>
+    <div class="modal-field">
+      <label>所在地</label>
+      <select id="foodGroup">
+        <option value="0">南京市区</option>
+        <option value="1">高铁1小时圈</option>
+        <option value="2">高铁1.5–2小时圈</option>
+        <option value="3">稍远</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <label>备注（选填）</label>
+      <input id="foodNote" type="text" placeholder="例如：某店招牌" />
+    </div>
+    <div class="modal-btns">
+      <button id="cancelFood" class="sync-btn">取消</button>
+      <button id="confirmFood" class="sync-btn primary">添加</button>
     </div>
   </div>
 </div>
@@ -357,6 +395,35 @@ const DATA = [
   },
 ];
 
+const FOOD_GROUPS = [
+  {
+    title: "南京市区",
+    sub: "本地小吃、老字号",
+    items: [
+      { name: "鸭血粉丝汤", note: "金陵头牌" },
+      { name: "盐水鸭", note: "南京特产" },
+      { name: "小笼汤包", note: "老门东、汤包馆" },
+      { name: "牛肉锅贴", note: "七家湾" },
+      { name: "糖芋苗 / 赤豆元宵", note: "甜品" },
+    ]
+  },
+  {
+    title: "高铁1小时圈",
+    sub: "镇江、扬州、常州、无锡",
+    items: []
+  },
+  {
+    title: "高铁1.5–2小时圈",
+    sub: "苏州、上海、杭州",
+    items: []
+  },
+  {
+    title: "稍远",
+    sub: "徽州等地",
+    items: []
+  },
+];
+
 const STORE_KEY = "nanjing-travel-checked-v2";
 
 function loadChecked() {
@@ -384,23 +451,35 @@ function saveCustom(arr) {
 }
 let customSpots = loadCustom();
 
+const FOOD_CUSTOM_KEY = "nanjing-travel-custom-foods-v1";
+function loadCustomFoods() {
+  try {
+    const raw = localStorage.getItem(FOOD_CUSTOM_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) { return []; }
+}
+function saveCustomFoods(arr) {
+  try { localStorage.setItem(FOOD_CUSTOM_KEY, JSON.stringify(arr)); } catch (e) {}
+}
+let customFoods = loadCustomFoods();
+
 function idOf(groupIdx, itemIdx) {
   return groupIdx + "-" + itemIdx;
 }
 
-function render() {
-  const groupsEl = document.getElementById("groups");
-  groupsEl.innerHTML = "";
+function renderBoard(elId, groups, customs, keyFn) {
+  const container = document.getElementById(elId);
+  container.innerHTML = "";
 
   let done = 0, all = 0;
 
-  DATA.forEach((group, gi) => {
-    // 合并内置景点 + 该组自定义景点
+  groups.forEach((group, gi) => {
+    // 合并内置条目 + 该组自定义条目
     const groupItems = [];
     group.items.forEach((item, ii) => {
-      groupItems.push({ name: item.name, note: item.note || "", id: idOf(gi, ii), custom: false });
+      groupItems.push({ name: item.name, note: item.note || "", id: keyFn(gi, ii), custom: false });
     });
-    customSpots.forEach(s => {
+    customs.forEach(s => {
       if (s.group === gi) groupItems.push({ name: s.name, note: s.note || "", id: s.id, custom: true });
     });
 
@@ -415,7 +494,6 @@ function render() {
 
     const groupEl = document.createElement("div");
     groupEl.className = "group";
-    groupEl.dataset.gi = gi;
 
     const head = document.createElement("div");
     head.className = "group-head";
@@ -445,7 +523,7 @@ function render() {
         ${it.custom ? '<span class="del" title="删除">×</span>' : ""}
       `;
       row.addEventListener("click", (e) => {
-        if (e.target.classList.contains("del")) { removeSpot(it.id); return; }
+        if (e.target.classList.contains("del")) { removeCustom(it.id); return; }
         checked[it.id] = !checked[it.id];
         saveChecked(checked);
         render();
@@ -454,19 +532,26 @@ function render() {
     });
 
     groupEl.appendChild(itemsWrap);
-    groupsEl.appendChild(groupEl);
+    container.appendChild(groupEl);
   });
 
-  document.getElementById("doneCount").textContent = done;
-  document.getElementById("allCount").textContent = all;
-  const pct = all ? Math.round(done / all * 100) : 0;
+  return { done, all };
+}
+
+function render() {
+  const stats = renderBoard("groups", DATA, customSpots, idOf);
+  renderBoard("foodGroups", FOOD_GROUPS, customFoods, (gi, ii) => "food-" + gi + "-" + ii);
+
+  document.getElementById("doneCount").textContent = stats.done;
+  document.getElementById("allCount").textContent = stats.all;
+  const pct = stats.all ? Math.round(stats.done / stats.all * 100) : 0;
   document.getElementById("pctText").textContent = pct + "%";
   document.getElementById("barFill").style.width = pct + "%";
 
   const noteEl = document.getElementById("progressNote");
-  if (done === 0) noteEl.textContent = "青春就在当下！";
-  else if (done === all) noteEl.textContent = "全部打卡！江南已是你的后花园 🎉";
-  else if (done >= 20) noteEl.textContent = "过半了，进度喜人，继续解锁更远的地方。";
+  if (stats.done === 0) noteEl.textContent = "青春就在当下！";
+  else if (stats.done === stats.all) noteEl.textContent = "全部打卡！江南已是你的后花园 🎉";
+  else if (stats.done >= 20) noteEl.textContent = "过半了，进度喜人，继续解锁更远的地方。";
   else noteEl.textContent = "继续走，周末别宅宿舍。";
 }
 
@@ -497,22 +582,27 @@ document.getElementById("resetBtn").addEventListener("click", () => {
 function b64encode(s) { return btoa(unescape(encodeURIComponent(s))); }
 function b64decode(s) { return decodeURIComponent(escape(atob(s))); }
 
-function removeSpot(id) {
-  customSpots = customSpots.filter(s => s.id !== id);
+function removeCustom(id) {
+  if (id.indexOf("food-custom-") === 0) {
+    customFoods = customFoods.filter(s => s.id !== id);
+    saveCustomFoods(customFoods);
+  } else {
+    customSpots = customSpots.filter(s => s.id !== id);
+    saveCustom(customSpots);
+  }
   delete checked[id];
-  saveCustom(customSpots);
   saveChecked(checked);
   render();
 }
 
 document.getElementById("exportBtn").addEventListener("click", () => {
-  const payload = { checked: checked, customSpots: customSpots };
+  const payload = { checked: checked, customSpots: customSpots, customFoods: customFoods };
   const code = b64encode(JSON.stringify(payload));
   const box = document.getElementById("syncBox");
   box.value = code;
   box.select();
   try { navigator.clipboard.writeText(code); } catch (e) {}
-  alert("同步码已生成并复制，直接发给室友即可（含进度和自加景点）。");
+  alert("同步码已生成并复制，直接发给室友即可（含进度、景点和美食）。");
 });
 
 document.getElementById("importBtn").addEventListener("click", () => {
@@ -523,13 +613,17 @@ document.getElementById("importBtn").addEventListener("click", () => {
     if (parsed && typeof parsed === "object") {
       const ck = parsed.checked || parsed;                       // 兼容旧格式（纯勾选对象）
       const spots = Array.isArray(parsed.customSpots) ? parsed.customSpots : [];
+      const foods = Array.isArray(parsed.customFoods) ? parsed.customFoods : [];
       for (const k in ck) { if (ck[k]) checked[k] = true; }      // 只合并"已打卡"，不冲掉你的
-      const exist = new Set(customSpots.map(s => s.id));
-      spots.forEach(s => { if (s && s.id && !exist.has(s.id)) { customSpots.push(s); exist.add(s.id); } });
+      const existSpots = new Set(customSpots.map(s => s.id));
+      spots.forEach(s => { if (s && s.id && !existSpots.has(s.id)) { customSpots.push(s); existSpots.add(s.id); } });
+      const existFoods = new Set(customFoods.map(s => s.id));
+      foods.forEach(s => { if (s && s.id && !existFoods.has(s.id)) { customFoods.push(s); existFoods.add(s.id); } });
       saveChecked(checked);
       saveCustom(customSpots);
+      saveCustomFoods(customFoods);
       render();
-      alert("导入成功，进度和自加景点都已合并！");
+      alert("导入成功，进度、景点和美食都已合并！");
     } else {
       throw new Error("bad");
     }
@@ -558,6 +652,29 @@ document.getElementById("confirmAdd").addEventListener("click", () => {
   customSpots.push({ id: "custom-" + Date.now(), name: name, note: note, group: group });
   saveCustom(customSpots);
   closeAddModal();
+  render();
+});
+
+// —— 添加美食 ——
+const foodModal = document.getElementById("addFoodModal");
+document.getElementById("addFoodBtn").addEventListener("click", () => {
+  document.getElementById("foodName").value = "";
+  document.getElementById("foodNote").value = "";
+  document.getElementById("foodGroup").value = "0";
+  foodModal.style.display = "flex";
+  document.getElementById("foodName").focus();
+});
+function closeFoodModal() { foodModal.style.display = "none"; }
+document.getElementById("cancelFood").addEventListener("click", closeFoodModal);
+foodModal.addEventListener("click", (e) => { if (e.target === foodModal) closeFoodModal(); });
+document.getElementById("confirmFood").addEventListener("click", () => {
+  const name = document.getElementById("foodName").value.trim();
+  const note = document.getElementById("foodNote").value.trim();
+  const group = parseInt(document.getElementById("foodGroup").value, 10);
+  if (!name) { alert("请填写美食名"); return; }
+  customFoods.push({ id: "food-custom-" + Date.now(), name: name, note: note, group: group });
+  saveCustomFoods(customFoods);
+  closeFoodModal();
   render();
 });
 
